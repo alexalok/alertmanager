@@ -33,9 +33,13 @@ import (
 	"github.com/prometheus/alertmanager/types"
 )
 
-// Telegram supports up to 4096 characters after entity parsing.
-// See https://core.telegram.org/bots/api#sendmessage.
-const maxMessageLenRunes = 4096
+const (
+	// Telegram rejects formatted input over 1 << 15 bytes before entity parsing.
+	maxMessageLenBytes = 1 << 15
+	// Telegram supports up to 4096 characters after entity parsing.
+	// See https://core.telegram.org/bots/api#sendmessage.
+	maxMessageLenRunes = 4096
+)
 
 // Notifier implements a Notifier for telegram notifications.
 type Notifier struct {
@@ -95,7 +99,7 @@ func (n *Notifier) Notify(ctx context.Context, alert ...*types.Alert) (bool, err
 		if err != nil {
 			return false, err
 		}
-		if htmlTextRuneCount(messageText) > maxMessageLenRunes {
+		if len(messageText) > maxMessageLenBytes || htmlTextRuneCount(messageText) > maxMessageLenRunes {
 			messageText = `Alertmanager notification could not be sent: message length exceeds Telegram limits.
 			Please check the template used for producing the message content.`
 		}

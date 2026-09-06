@@ -83,7 +83,15 @@ func TestTelegramRetry(t *testing.T) {
 
 func TestTelegramNotify(t *testing.T) {
 	token := "secret"
+	htmlLinkWithSize := func(size int) string {
+		const prefix = `<a href="https://example.com/`
+		const suffix = `">Open</a>`
+
+		return prefix + strings.Repeat("x", size-len(prefix)-len(suffix)) + suffix
+	}
 	longHTMLLink := `<a href="https://example.com/` + strings.Repeat("x", maxMessageLenRunes) + `">Open</a>`
+	htmlAtInputLimit := htmlLinkWithSize(1 << 15)
+	htmlOverInputLimit := htmlLinkWithSize(1<<15 + 1)
 	longMalformedHTML := `<a href="` + strings.Repeat("x", maxMessageLenRunes)
 	longMalformedHTMLTemplate := fmt.Sprintf(`{{ %q | safeHtml }}`, longMalformedHTML)
 	longMalformedComment := `<!--` + strings.Repeat("x", maxMessageLenRunes)
@@ -149,6 +157,27 @@ func TestTelegramNotify(t *testing.T) {
 				BotToken:   commoncfg.Secret(token),
 			},
 			expText: longHTMLLink,
+		},
+		{
+			name: "HTML mode accepts raw input at Telegram limit",
+			cfg: TelegramConfig{
+				ParseMode:  "HTML",
+				Message:    htmlAtInputLimit,
+				HTTPConfig: &commoncfg.HTTPClientConfig{},
+				BotToken:   commoncfg.Secret(token),
+			},
+			expText: htmlAtInputLimit,
+		},
+		{
+			name: "HTML mode falls back for raw input over Telegram limit",
+			cfg: TelegramConfig{
+				ParseMode:  "HTML",
+				Message:    htmlOverInputLimit,
+				HTTPConfig: &commoncfg.HTTPClientConfig{},
+				BotToken:   commoncfg.Secret(token),
+			},
+			expText: `Alertmanager notification could not be sent: message length exceeds Telegram limits.
+			Please check the template used for producing the message content.`,
 		},
 		{
 			name: "HTML mode falls back for too-large malformed tag",

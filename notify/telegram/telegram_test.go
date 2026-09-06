@@ -286,6 +286,38 @@ func TestTelegramNotify(t *testing.T) {
 	}
 }
 
+func TestHTMLTextRuneCount(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		want  int
+	}{
+		{input: `&lt;`, want: 1},
+		{input: `&gt;`, want: 1},
+		{input: `&amp;`, want: 1},
+		{input: `&quot;`, want: 1},
+		{input: `&#39;`, want: 1},
+		{input: `&#x27;`, want: 1},
+		{input: `&#128293;`, want: 1},
+		{input: `&#x1F525;`, want: 1},
+		{input: `&nbsp;`, want: 6},
+		{input: `&mdash;`, want: 7},
+		{input: `&apos;`, want: 6},
+		{input: `&copy;`, want: 6},
+		{input: `&hellip;`, want: 8},
+		{input: `&nbspa`, want: 6},
+		{input: `&nbsp `, want: 6},
+		{input: `&ampa`, want: 5},
+		{input: `&amp `, want: 2},
+		{input: `&#0;`, want: 4},
+		{input: `&#1114112;`, want: 10},
+		{input: `a & b`, want: 5},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			require.Equal(t, tc.want, htmlTextRuneCount(tc.input))
+		})
+	}
+}
+
 func TestTelegramNotifyFailureReason(t *testing.T) {
 	token := "secret"
 

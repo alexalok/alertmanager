@@ -169,9 +169,73 @@ func htmlTextRuneCount(message string) int {
 		case html.CommentToken, html.DoctypeToken:
 			return utf8.RuneCountInString(message)
 		case html.TextToken:
-			count += utf8.RuneCount(tokenizer.Text())
+			count += telegramHTMLTextRuneCount(tokenizer.Raw())
 		}
 	}
+}
+
+func telegramHTMLTextRuneCount(text []byte) int {
+	count := 0
+	for len(text) > 0 {
+		if text[0] == '&' {
+			if entityLen := telegramHTMLEntityLen(text); entityLen > 0 {
+				count++
+				text = text[entityLen:]
+				continue
+			}
+		}
+
+		_, size := utf8.DecodeRune(text)
+		count++
+		text = text[size:]
+	}
+	return count
+}
+
+func telegramHTMLEntityLen(text []byte) int {
+	if len(text) < 2 || text[0] != '&' {
+		return 0
+	}
+
+	end := 1
+	if text[end] != '#' {
+		for end < len(text) && (text[end] >= 'a' && text[end] <= 'z' || text[end] >= 'A' && text[end] <= 'Z') {
+			end++
+		}
+		switch string(text[1:end]) {
+		case "lt", "gt", "amp", "quot":
+			if end < len(text) && text[end] == ';' {
+				end++
+			}
+			return end
+		default:
+			return 0
+		}
+	}
+
+	end++
+	base := 10
+	if end < len(text) && text[end] == 'x' {
+		base = 16
+		end++
+	}
+	digitsStart := end
+	for end < len(text) {
+		c := text[end]
+		if c >= '0' && c <= '9' || base == 16 && (c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
+			end++
+			continue
+		}
+		break
+	}
+	code, err := strconv.ParseUint(string(text[digitsStart:end]), base, 32)
+	if err != nil || code == 0 || code >= utf8.MaxRune || end >= 10 {
+		return 0
+	}
+	if end < len(text) && text[end] == ';' {
+		end++
+	}
+	return end
 }
 
 func createTelegramClient(apiURL, parseMode string, httpClient *http.Client) (*telebot.Bot, error) {

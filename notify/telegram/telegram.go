@@ -201,6 +201,8 @@ func telegramHTMLTextRuneCount(text []byte) int {
 // decode at the start of text, or zero if Telegram would render it literally.
 // Telegram accepts four named entities and valid decimal or hexadecimal numeric
 // entities, with or without a trailing semicolon.
+// This mirrors TDLib's decode_html_entity implementation:
+// https://github.com/tdlib/td/blob/d1085f9cebc5a62379991ae1652673954f229c1f/td/telegram/MessageEntity.cpp#L3240-L3286
 func telegramHTMLEntityLen(text []byte) int {
 	if len(text) < 2 || text[0] != '&' {
 		return 0
